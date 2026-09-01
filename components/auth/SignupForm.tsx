@@ -31,7 +31,6 @@ export function SignupForm({ convite }: { convite?: ConviteDoSignup }) {
   const t = useT();
   const [isPending, startTransition] = useTransition();
   const [serverError, setServerError] = useState<string | null>(null);
-  const [sentTo, setSentTo] = useState<string | null>(null);
 
   const {
     register,
@@ -61,35 +60,23 @@ export function SignupForm({ convite }: { convite?: ConviteDoSignup }) {
       const entrada: SignupInput | SignupComConviteInput = convite
         ? { email: convite.email, password: values.password, password_confirm: values.password_confirm }
         : values;
+      // Sucesso não retorna: o server action redireciona (onboarding ou aceite
+      // de convite) e os Set-Cookie da sessão propagam nesse redirect.
       const res = await signUp(entrada, convite?.token);
-      if (res.ok) {
-        setSentTo(values.email);
-        return;
-      }
+      if (!res || res.ok) return;
       if (res.error === "rate_limited") {
         setServerError(t("Muitas tentativas. Aguarde alguns minutos."));
       } else if (res.error === "validation_error") {
         setServerError(t("Dados inválidos. Confira os campos."));
+      } else if (res.error === "email_taken") {
+        setServerError(t("Este e-mail já está cadastrado. Faça login."));
+      } else if (res.error === "convite_invalido") {
+        setServerError(t("Esse convite expirou ou não é mais válido. Peça um novo."));
       } else {
         setServerError(t("Não foi possível criar a conta. Tente novamente."));
       }
     });
   };
-
-  if (sentTo) {
-    return (
-      <div
-        className="space-y-2 rounded-md border bg-muted/40 px-4 py-6 text-center"
-        role="status"
-      >
-        <p className="text-sm font-medium">{t("Confirme seu e-mail")}</p>
-        <p className="text-sm text-muted-foreground">
-          {t("Enviamos um link de confirmação para")} <strong>{sentTo}</strong>.{" "}
-          {t("Abra o e-mail e clique no link para ativar sua conta.")}
-        </p>
-      </div>
-    );
-  }
 
   return (
     <form method="post" onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
